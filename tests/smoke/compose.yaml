@@ -1,0 +1,45 @@
+name: kiri-smoke
+
+# Minimal two-container smoke test on kiri:
+#   browser -> proxy (nginx, :8080) -> app (nginx serving ./web)
+# Nothing is built; both services use the stock nginx:alpine image.
+
+services:
+  app:
+    image: nginx:alpine
+    container_name: smoke-app
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+    networks:
+      - smoke
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz.txt"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 3s
+    restart: unless-stopped
+
+  proxy:
+    image: nginx:alpine
+    container_name: smoke-proxy
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - smoke
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 3s
+    restart: unless-stopped
+
+networks:
+  smoke:
+    driver: bridge
