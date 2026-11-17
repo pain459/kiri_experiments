@@ -1,4 +1,5 @@
 DOCKER ?= kiri
+export DOCKER
 
 # A stack is any directory holding a compose.yaml, at the repo root or one
 # level below it. Discovery is deliberately shallow: `smoke`, `smoke/redis`

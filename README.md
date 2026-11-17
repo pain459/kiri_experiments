@@ -2,7 +2,8 @@
 
 Experiments with [kiri](https://kiri.dev) as the container runtime on macOS.
 Each experiment is a folder holding a `compose.yaml`, either at the repo root or
-one level below it.
+one level below it. Stacks under `productivity/` are daily drivers and stay up;
+`smoke` is a test stack and is normally stopped.
 
 ## Layout
 
@@ -61,7 +62,10 @@ cd smoke/postgres && make -f ../../Makefile up .
 With exactly one stack in the repo the path may be omitted; as soon as a second
 exists, `up`/`down`/`check`/`logs`/`clean` require it and list what's available.
 
-## smoke
+## smoke (test stack — kept stopped)
+
+A validation stack, not an everyday service. It stays down unless you are
+checking kiri itself; `make up smoke` when you need it, `make down smoke` after.
 
 Two containers, no build step, stock `nginx:alpine` for both:
 
@@ -94,8 +98,46 @@ Endpoints once up:
 ### Experiments to try
 
 ```sh
-make down && make up                 # does the stack come back cleanly?
-kiri compose stop app                # `/` should 502, `/healthz` still 200
-make shell                           # poke around a running container
+make restart smoke                   # does the stack come back cleanly?
+make shell smoke                     # poke around a running container
+kiri compose -f smoke/compose.yaml stop app   # `/` 502s, `/healthz` stays 200
 kiri diag logs --errors              # kiri-side errors during the above
 ```
+
+## productivity
+
+Everyday apps, each independent and safe to leave running.
+
+| Stack | URL | State | Notes |
+| --- | --- | --- | --- |
+| `productivity/memos` | <http://127.0.0.1:5230> | `./data` (SQLite) | Quick notes. Single binary, in-container healthcheck |
+| `productivity/vikunja` | <http://127.0.0.1:3456> | `./data/files` (SQLite) | Tasks/kanban. Distroless image: no shell, so `make check` probes from the host |
+| `productivity/stirling-pdf` | <http://127.0.0.1:8081> | `./data/{configs,logs,pipeline}` | PDF toolbox. Host port 8081 since smoke owns 8080 |
+
+```sh
+make up productivity/memos
+make check productivity/memos
+make down productivity/memos
+```
+
+Things worth knowing:
+
+- `vikunja` sets `VIKUNJA_SERVICE_JWTSECRET` to a development default. Override it
+  with `VIKUNJA_SERVICE_JWTSECRET=... make up productivity/vikunja` if the port is
+  ever reachable beyond this machine.
+- `stirling-pdf` deliberately does not bind-mount tessdata: an empty directory over
+  it silently breaks OCR. Copy real data into `./data/tessdata` first if you want
+  extra languages.
+- Runtime state lives in `data/` and is gitignored; `make clean <stack>` drops
+  containers and volumes, but leaves `data/` alone so notes and PDFs survive.
+
+## Port map
+
+Stacks run independently; only these ports are taken while they are up.
+
+| Port | Stack | Everyday? |
+| --- | --- | --- |
+| 3456 | vikunja | yes |
+| 5230 | memos | yes |
+| 8081 | stirling-pdf | yes |
+| 8080 | smoke (proxy) | no — test stack, normally stopped |

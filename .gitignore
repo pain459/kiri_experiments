@@ -221,3 +221,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Container runtime state (bind-mounted stack data)
+*/data/
+*/*/data/

@@ -1,0 +1,28 @@
+name: kiri-vikunja
+
+# Tasks / kanban. The image is distroless (binary only, no shell), so it cannot
+# run a healthcheck itself -- `make check productivity/vikunja` verifies it from
+# the host instead.
+services:
+  vikunja:
+    image: vikunja/vikunja:latest
+    container_name: vikunja
+    ports:
+      - "3456:3456"
+    environment:
+      VIKUNJA_SERVICE_PUBLICURL: http://localhost:3456/
+      VIKUNJA_DATABASE_TYPE: sqlite
+      VIKUNJA_DATABASE_PATH: /app/vikunja/files/vikunja.db
+      VIKUNJA_FILES_BASEPATH: /app/vikunja/files
+      # Local experiment only. Override with a real secret if this ever
+      # leaves this machine: VIKUNJA_SERVICE_JWTSECRET=... make up ...
+      VIKUNJA_SERVICE_JWTSECRET: ${VIKUNJA_SERVICE_JWTSECRET:-dev-only-change-me}
+    volumes:
+      - ./data/files:/app/vikunja/files
+    networks:
+      - vikunja
+    restart: unless-stopped
+
+networks:
+  vikunja:
+    driver: bridge

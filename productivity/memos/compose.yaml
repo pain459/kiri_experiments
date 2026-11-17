@@ -1,0 +1,24 @@
+name: kiri-memos
+
+# Quick-capture notes. Single Go binary + SQLite, all state under ./data.
+services:
+  memos:
+    image: neosmemo/memos:stable
+    container_name: memos
+    ports:
+      - "5230:5230"
+    volumes:
+      - ./data:/var/opt/memos
+    networks:
+      - memos
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5230/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+networks:
+  memos:
+    driver: bridge
