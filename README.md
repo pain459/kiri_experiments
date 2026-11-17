@@ -1,42 +1,65 @@
 # kiri_experiments
 
 Experiments with [kiri](https://kiri.dev) as the container runtime on macOS.
-Each experiment lives in its own self-contained directory under `tests/`.
+Each experiment is a folder holding a `compose.yaml`, either at the repo root or
+one level below it.
 
 ## Layout
 
 ```
-tests/
-  smoke/            # minimal two-container stack
+smoke/                  # a stack, and a group of stacks
+  compose.yaml          # smoke itself: nginx proxy -> static app
+  check.sh
+  proxy/
+  web/
+  postgres/             # example of a nested stack
     compose.yaml
-    check.sh        # assertions for this test
-    proxy/          # nginx reverse-proxy config
-    web/            # static files served by the app container
-Makefile            # wrappers: TEST=<name> make up|check|down|...
+redis/                  # example of a root-level stack
+  compose.yaml
+Makefile                # make <target> <stack-path>
 ```
 
-Every test directory is created the same way:
+Discovery is one level deep, never recursive:
 
-```
-tests/<name>/
-  compose.yaml   # the stack
-  check.sh       # executable; exits non-zero on failure
-```
+| Path | Stack? |
+| --- | --- |
+| `smoke/compose.yaml` | yes — `make up smoke` |
+| `smoke/postgres/compose.yaml` | yes — `make up smoke/postgres` |
+| `smoke/postgres/data/compose.yaml` | no, ignored |
 
-`make` targets default to `TEST=smoke`:
+A directory qualifies as a stack the moment it contains a `compose.yaml`; no
+registration needed. Because project names default to the directory name, give
+each `compose.yaml` a unique `name: ` (`kiri-<stack>`) so nested stacks with the
+same leaf name don't collide.
+
+## Usage
+
+The stack path is passed as an argument after the target:
 
 ```sh
-make list          # show available tests
-make up            # start tests/smoke
-make check         # run tests/smoke/check.sh
-make ps
-make logs
-make down
-make clean         # also drop volumes
+make list                        # stacks found in the repo
+make up smoke                    # start a stack
+make check smoke                 # run its check.sh, if any
+make down smoke
+make logs smoke
+make clean smoke                 # also drop volumes
 
-make up TEST=<name>      # any other test
-DOCKER=docker make up    # run against a different runtime/context
+make ps                          # status of every stack
+make ps smoke                    # status of one stack
+make ps smoke/postgres           # nested stack
+
+DOCKER=docker make up smoke      # different runtime/context
 ```
+
+Also accepted: `STACK=smoke/postgres make up`, a trailing slash (`smoke/`), and
+`.` when run from inside a stack directory:
+
+```sh
+cd smoke/postgres && make -f ../../Makefile up .
+```
+
+With exactly one stack in the repo the path may be omitted; as soon as a second
+exists, `up`/`down`/`check`/`logs`/`clean` require it and list what's available.
 
 ## smoke
 
